@@ -1,0 +1,48 @@
+**Problem Summary:**
+Configuring CUSTOM MAC on L3 Interface with 10G Breakout Port, L3 Traffic is blackholed
+
+**Root Cause Analysis:**
+
+1.     Packet is getting dropped because of the VSI Derivation is going wrong .
+2.     VSI value is determined based on VLAN_DOMAIN, VLAN_ID. When the Custom MAC is configured, we will 
+         update the VSI table and the Index for the  VSI  TABLE  is based on the Interface LIF.
+3.      Here the MAC Address update is correctly happening in the VSI table but VLAN_DOMAIN is going wrong 
+         due to which PACKET is Picking the wrong VSI
+
+Why VLAN Domain is Not Programmed Correctly ?
+ETHPM sends below three requests in the reload case.
+ 
+a. Interface_PRE_CFG:  (ETHPM to ELTM)
+In the Interface bring up, we set correct vlan_domain for the Rx Port
+ 
+b. PORT_SPEED: (ETHPM to JER-USD)
+JERUSD triggers breakout port init based on the type of transceiver we have in the Port. If we have 10G,it does a breakout internally.
+In this INIT, it also resets the vlan_domain for the interface through jer_usd_tlv_jer_iftmc_tpid_init . This will reset the value we programmed in the previous step(a)
+ 
+c. DOT1Q_ETHERTYPE : (ETHPM to JER_USD)
+It will set vlan_domain which we reset in previous step (b)
+ 
+This is how vlan_domain will be ZERO after Reload Module
+
+**Summary of Code Fix:**
+In the Step (b) we read the vlan_domain value from bcm_port_class_get and program the same sothat we avoid restting the vlan_domain  for the port.
+ 
+**How Has This Been Tested?**
+Tested on TAC Setup
+
+**Other Comments:**
+_Following are the supported xFLow options with their defaults. Please update the value(s) for the option(s) to be passed to xFlow. 
+
+
+XFLOW_GH_OPT:smart_uls_asic:"fretta"
+
+XFLOW_GH_OPT:ci_tag:""
+
+XFLOW_GH_OPT:sanity_config:""
+
+XFLOW_GH_OPT:fullbuild:false
+
+XFLOW_GH_OPT:build_only:false
+<br>
+
+_Please check https://gh-nx.scm.engit.cisco.com/nx/nx/wiki/About-pull-requests#xflow-options for details_
